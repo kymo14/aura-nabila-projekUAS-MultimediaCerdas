@@ -6,58 +6,59 @@
 - **Kelas** : 6D
 - **Tugas** : Ulangan Akhir Semester Mata Kuliah Multimedia Cerdas
 
-## Deskripsi Proyek
-Proyek ini merupakan implementasi **klasifikasi kesegaran buah pisang** (segar vs busuk) menggunakan model **YOLO26n-cls**. Model dilatih untuk membedakan dua kelas: `fresh` (pisang segar) dan `rotten` (pisang busuk), lalu diuji secara real-time menggunakan kamera melalui Google Colab.
+## Permasalahan
+Menentukan kesegaran buah pisang (segar atau busuk) biasanya masih dilakukan secara manual dengan melihat langsung kondisi fisik buah. Cara ini bersifat subjektif, tidak konsisten antar orang, dan cukup lambat jika harus memeriksa banyak buah sekaligus — misalnya di gudang penyimpanan, pasar, atau proses sortir sebelum distribusi.
+
+Proyek ini menyelesaikan masalah tersebut dengan pendekatan **Computer Vision (YOLO)**, yaitu membangun model yang bisa **secara otomatis dan real-time** mengklasifikasikan kondisi pisang (segar/busuk) hanya dari gambar yang diambil lewat kamera, sehingga proses pengecekan jadi lebih cepat, objektif, dan konsisten.
+
+## Fungsi/Fitur
+- **Klasifikasi otomatis** kondisi pisang ke dalam 2 kelas: `fresh` (segar) dan `rotten` (busuk).
+- **Deteksi real-time** menggunakan kamera browser langsung di Google Colab (tanpa perlu upload manual file gambar satu-satu).
+- **Filter confidence threshold** — jika model tidak yakin (confidence < 60%), sistem akan menampilkan "Bukan pisang / tidak dikenali" alih-alih memaksakan salah satu label.
+- **Feedback visual instan** — hasil prediksi ditampilkan langsung sebagai teks berwarna di atas gambar (hijau = segar, merah = busuk, abu-abu = tidak dikenali).
+- **Pipeline lengkap** dari persiapan dataset, split data, training model, sampai inference — semuanya dalam satu notebook.
 
 ## Dataset
-Dataset yang digunakan adalah **Fruit and Vegetable (Fresh vs Rotten)**, khusus subset gambar pisang (`banana`) dari dataset berikut:
+Menggunakan subset gambar pisang (`banana`) dari dataset **Fruit and Vegetable (Fresh vs Rotten)**:
 
 🔗 [Fruit Quality Dataset - Kaggle](https://www.kaggle.com/datasets/zlatan599/fruitquality1?select=Unified_Dataset)
 
-Dataset berisi gambar pisang yang dikelompokkan ke dalam dua kategori:
-- `fresh` — pisang dalam kondisi segar
-- `rotten` — pisang dalam kondisi busuk
+Data dibagi otomatis menjadi **80% train** dan **20% validation** (`random seed = 42` agar hasilnya konsisten setiap dijalankan ulang).
 
-Data dibagi menjadi **80% data latih (train)** dan **20% data validasi (val)** secara acak dengan `random seed = 42` agar hasil split konsisten dan dapat direproduksi.
+## Instalasi
+Proyek ini dijalankan di **Google Colab**, sehingga sebagian besar environment sudah tersedia. Berikut yang perlu disiapkan:
 
-## Alur Kerja (Pipeline)
-
-1. **Persiapan Environment**
-   Instalasi library `ultralytics` (framework YOLO) dan `opencv-python` untuk pemrosesan gambar.
-
-2. **Mount Google Drive**
-   Dataset diakses langsung dari Google Drive melalui Google Colab.
-
-3. **Split Dataset**
-   Gambar pada folder `fresh` dan `rotten`:
+1. **Buka notebook** (`.ipynb`) di Google Colab.
+2. **Install library** yang dibutuhkan (dijalankan otomatis di cell pertama notebook):
+   ```bash
+   pip install ultralytics opencv-python
    ```
-   banana_dataset/
-   ├── fresh/
-   └── rotten/
+3. **Siapkan dataset** di Google Drive dengan struktur folder:
    ```
+   Unified_Dataset/
+   └── banana/
+       ├── fresh/
+       └── rotten/
+   ```
+4. **Hubungkan Google Drive** ke Colab (dilakukan lewat cell `drive.mount(...)` di notebook).
+5. Pastikan runtime Colab menggunakan **GPU** (Runtime → Change runtime type → GPU) agar proses training lebih cepat.
 
-4. **Training Model**
-   Model **`yolo26n-cls.pt`** dilatih menggunakan dataset pisang selama **10 epoch** dengan ukuran gambar **224x224 piksel**. YOLO26 dipilih karena arsitekturnya lebih ringan (tanpa NMS/DFL) dan inference-nya lebih cepat dibanding versi sebelumnya (YOLO11), sambil tetap mempertahankan akurasi yang baik.
-
-5. **Evaluasi Model**
-   Model terbaik hasil training (`best.pt`) dimuat kembali untuk digunakan pada tahap prediksi.
-
-6. **Deteksi Real-Time via Kamera**
-   Menggunakan JavaScript untuk mengakses kamera browser di Colab, gambar diambil secara langsung (`take_photo()`) lalu dikonversi ke format OpenCV (`js_to_image()`) sebelum diklasifikasikan oleh model. Hasil prediksi ditampilkan sebagai overlay teks pada gambar dengan aturan:
-   - **Confidence < 60%** → dianggap "Bukan pisang / tidak dikenali" (teks abu-abu)
-   - **Label `fresh`** → ditampilkan sebagai "Pisang segar" (teks hijau)
-   - **Label `rotten`** → ditampilkan sebagai "Pisang busuk" (teks merah)
-
-   Proses ini diulang selama beberapa frame (default 30 kali pengambilan foto) agar dapat dihentikan secara otomatis.
+## Cara Kerja
+1. **Persiapan data** — Dataset gambar pisang (`fresh` dan `rotten`) diambil dari Google Drive, lalu di-*shuffle* dan dibagi menjadi folder `train` dan `val` (80:20).
+2. **Training model** — Model **`yolo26n-cls.pt`** (varian nano dari YOLO26, model klasifikasi gambar terbaru dari Ultralytics) dilatih selama 10 epoch dengan ukuran gambar 224x224 piksel.
+3. **Evaluasi & load model** — Model terbaik hasil training (`best.pt`) dimuat kembali untuk digunakan pada tahap prediksi.
+4. **Deteksi real-time** — 
+   - Kamera browser diakses lewat JavaScript (`take_photo()`) untuk mengambil gambar secara langsung.
+   - Gambar dikonversi ke format OpenCV (`js_to_image()`).
+   - Model memprediksi kelas gambar tersebut beserta tingkat confidence-nya.
+   - Hasil ditampilkan sebagai teks di atas gambar: **hijau** untuk pisang segar, **merah** untuk pisang busuk, **abu-abu** jika confidence terlalu rendah (dianggap bukan pisang).
+   - Proses ini berulang otomatis selama beberapa frame (default 30 kali pengambilan foto).
 
 ## Teknologi yang Digunakan
 - Python
-- [Ultralytics YOLO26](https://docs.ultralytics.com/models/yolo26) (model klasifikasi gambar generasi terbaru)
+- [Ultralytics YOLO26](https://docs.ultralytics.com/models/yolo26) (model klasifikasi gambar)
 - OpenCV
-- Google Colab
+- Google Colab (Google Drive integration, akses kamera via JavaScript)
 
-## Cara Menjalankan
-1. Buka notebook di Google Colab (disarankan dengan runtime GPU, misalnya T4).
-2. Hubungkan Google Drive yang berisi dataset (`Fruit and Vegetable (Fresh vs Rotten)`).
-3. Jalankan seluruh cell secara berurutan dari atas ke bawah.
-4. Pada cell terakhir (`start_streaming()`), izinkan akses kamera saat diminta browser untuk mencoba klasifikasi secara langsung.
+## Catatan
+Proyek ini dibuat sebagai pemenuhan tugas UAS mata kuliah Multimedia Cerdas, dengan pendekatan Computer Vision (YOLO) untuk menyelesaikan permasalahan klasifikasi kesegaran buah secara otomatis.
